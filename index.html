@@ -1,1 +1,26 @@
-javascript:(function(){let t=document.body.innerText;let r=(t.match(/(\d{4})\s+[A-Z ]+\s+RAL\s*840HR/i)||[''])[0];let f=(t.match(/WB\d+.*?WT[\d\.]+|BL\d+\.\d+.*?WT\d+\.\d+/i)||[''])[0];let c=(t.match(/Colorant cost:\s*([\d\.]+)/i)||[])[1];let p=(t.match(/\d+\s+CONSEAL TU/i)||['CONSEAL TU'])[0];let s='20L';if(t.includes('3.6')&&document.body.innerHTML.includes('value="1"')){let els=[...document.querySelectorAll('div')];for(let el of els){if(el.innerText.includes('1')&&el.innerText.includes('litres')){let m=el.innerText.match(/(3\.6|5|20)/);if(m)s=m[1]+'L'}}}let out=[r.replace(/\s+/g,' ').trim(),p.trim(),s,f.trim(),c].join(' | ');prompt('KOPYALA:',out)})()
+<!-- RAL KAYIT PANELİ -->
+<div style="border:2px dashed orange; padding:15px; margin:20px; background:#fffbe6">
+  <h3>📥 JCM'den Gelen Formül</h3>
+  <input id="jcmInput" placeholder="JCM'den kopyala: WB019 BL070.3... | 41.86" style="width:70%; padding:8px">
+  <input id="ralInput" placeholder="RAL No: 7016" style="width:20%; padding:8px">
+  <button onclick="kaydet()" style="padding:8px 15px; background:green; color:white">KAYDET SİSTEME</button>
+  <pre id="sonuc"></pre>
+</div>
+
+<script>
+let kayitlar = JSON.parse(localStorage.getItem('jotun_kayitlar')||'[]');
+function kaydet(){
+  let v = document.getElementById('jcmInput').value;
+  let ral = document.getElementById('ralInput').value || 'BILINMEYEN';
+  if(!v) return alert('JCM kodunu yapıştır');
+  let parca = v.split('|');
+  let formul = parca[0].trim();
+  let maliyet = parca[1] ? parca[1].trim() : '0';
+  let obj = {ral:ral, formul:formul, colorant_cost:maliyet, tarih:new Date().toLocaleString()};
+  kayitlar.push(obj);
+  localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));
+  document.getElementById('sonuc').innerText = '✅ KAYDEDİLDİ:\n' + JSON.stringify(obj,null,2) + '\n\nTüm Liste:\n' + JSON.stringify(kayitlar,null,2);
+  // products.json için export
+  console.log('products.json için:', JSON.stringify(kayitlar));
+}
+</script>
