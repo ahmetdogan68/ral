@@ -1,23 +1,23 @@
-<!-- RAL KAYIT PANELİ - V2 - JCM + RAL + BASE TAM -->
+<!-- RAL KAYIT PANELİ - V3 - OTOMATİK ALGILAMA + 5SN OTO KAYIT -->
 <div style="border:2px dashed orange; padding:15px; margin:20px; background:#fffbe6; border-radius:12px; font-family:Arial">
-  <h3 style="color:#012060">🎨 JCM'den Gelen Formül - TAM KAYIT</h3>
-  <div style="display:grid; grid-template-columns:1fr 120px 100px; gap:8px; margin-top:10px">
-    <input id="jcmInput" placeholder="JCM'den kopyala: WB019 BL070.3... | 41.86" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:700">
-    <input id="ralInput" placeholder="RAL No: 7016" style="padding:10px; border:2px solid #ff9900; border-radius:8px; font-weight:900">
-    <select id="baseInput" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:900">
-      <option value="1">BASE 1</option>
-      <option value="2">BASE 2</option>
-      <option value="3" selected>BASE 3</option>
-    </select>
+  <h3 style="color:#012060">🎨 JCM OTOMATİK - YAPIŞTIR 5SN'DE KAYDEDER</h3>
+  <div style="background:#012060;color:white;padding:6px 10px;border-radius:6px;font-size:11px;margin-bottom:8px">Format: RAL DOKU | ÜRÜN ADI | BASE | FORMÜL | AMBALAJ | MALİYET<br>Örn: 9010 PURE WHITE RAL 840HR | FUTURA CLASSIC | 1 | WB001.9 YX001.1 | 20L | 0.39</div>
+  <div style="display:grid; grid-template-columns:1fr 120px 80px 80px; gap:6px">
+    <input id="jcmInput" placeholder="JCM'den KOPYALA yapıştır - otomatik çözer" style="padding:12px; border:3px solid #ff9900; border-radius:8px; font-weight:800; font-size:12px">
+    <input id="ralInput" placeholder="RAL" style="padding:10px; border:2px solid #ff9900; border-radius:8px; font-weight:900">
+    <input id="urunInput" placeholder="ÜRÜN" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:700; font-size:11px">
+    <select id="baseInput" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:900"><option value="1">BASE 1</option><option value="2">BASE 2</option><option value="3">BASE 3</option></select>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 80px 80px; gap:6px; margin-top:6px">
+    <input id="formulInput" placeholder="FORMÜL" style="padding:10px; border:2px dashed #0a7a2f; border-radius:8px; font-weight:700; font-size:11px">
+    <input id="ambalajInput" placeholder="20L" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:900">
+    <input id="maliyetInput" placeholder="0.39" style="padding:10px; border:2px solid #0a7a2f; border-radius:8px; font-weight:900">
   </div>
   <div style="display:flex; gap:8px; margin-top:10px">
-    <button onclick="kaydet()" style="flex:1; padding:12px; background:#0a7a2f; color:white; border:none; border-radius:10px; font-weight:900; cursor:pointer">✅ KAYDET SİSTEME - 2 SİTEDE ÇALIŞIR</button>
-    <button onclick="temizle()" style="padding:12px; background:#ff4444; color:white; border:none; border-radius:10px; font-weight:900">🗑️ TEMİZLE</button>
+    <button id="kaydetBtn" onclick="kaydet()" style="flex:1; padding:12px; background:#0a7a2f; color:white; border:none; border-radius:10px; font-weight:900; cursor:pointer">✅ KAYDET SİSTEME</button>
+    <button onclick="temizle()" style="padding:12px; background:#ff4444; color:white; border:none; border-radius:10px; font-weight:900">🗑️</button>
   </div>
-  <div style="display:flex; gap:8px; margin-top:8px">
-    <button onclick="exportJSON()" style="flex:1; padding:8px; background:#012060; color:white; border:none; border-radius:8px; font-size:11px">📋 GitHub için JSON KOPYALA</button>
-    <button onclick="indir()" style="flex:1; padding:8px; background:#ffcc00; color:#012060; border:2px solid #012060; border-radius:8px; font-size:11px; font-weight:900">⬇️ JSON İNDİR</button>
-  </div>
+  <div id="otoInfo" style="background:#eef3ff; border:2px solid #012060; border-radius:8px; padding:8px; margin-top:8px; font-size:11px; font-weight:900; display:none"></div>
   <pre id="sonuc" style="background:white; padding:10px; border-radius:8px; margin-top:10px; max-height:200px; overflow:auto; font-size:11px"></pre>
   <div id="liste" style="margin-top:12px"></div>
 </div>
@@ -25,94 +25,147 @@
 <script>
 let kayitlar = JSON.parse(localStorage.getItem('jotun_kayitlar')||'[]');
 let kayitlarV2 = JSON.parse(localStorage.getItem('jotun_kayitlar_v2')||'[]');
-// İkisini senkron tut
-if(kayitlar.length>0 && kayitlarV2.length==0) { kayitlarV2=kayitlar; localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2)); }
-if(kayitlarV2.length>0 && kayitlar.length==0) { kayitlar=kayitlarV2; localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar)); }
+if(kayitlar.length>0 && kayitlarV2.length==0){kayitlarV2=kayitlar; localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2));}
+if(kayitlarV2.length>0 && kayitlar.length==0){kayitlar=kayitlarV2; localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));}
+let otoTimer=null;
+
+function parseJcmFormat(v){
+  // Format: 9010 PURE WHITE RAL 840HR | FUTURA CLASSIC | 1 | WB001.9 YX001.1 | 20L | 0.39
+  if(!v.includes('|')) return null;
+  let p = v.split('|').map(s=>s.trim()).filter(s=>s);
+  if(p.length < 4) return null;
+  let ralFull = p[0]; // 9010 PURE WHITE RAL 840HR
+  let ralNoMatch = ralFull.match(/(\d{4})/);
+  let ralNo = ralNoMatch ? ralNoMatch[1] : ralFull;
+  let ralIsim = ralFull.replace(/\d{4}/,'').replace(/RAL\s*840HR/i,'').trim();
+  
+  let urun = p[1] || 'FUTURA CLASSIC';
+  let base = p[2] || '1';
+  // base sayı mı kontrol
+  if(!/^[1-3]$/.test(base.trim())){ // bazen base ile formül yer değişmiş olabilir
+    base='1';
+  }
+  let formul = p[3] || '';
+  let ambalaj = '20L';
+  let maliyet = '0';
+  
+  if(p.length===5){
+    // 5 parça: RAL | URUN | BASE | FORMUL | MALIYET (ambalaj yok)
+    maliyet = p[4];
+  } else if(p.length>=6){
+    // 6 parça: RAL | URUN | BASE | FORMUL | AMBALAJ | MALIYET
+    ambalaj = p[4];
+    maliyet = p[5];
+  }
+  // temizle
+  base = base.replace(/[^1-3]/g,'').trim() || '1';
+  ambalaj = ambalaj.replace(/[^0-9\.L]/gi,'').toUpperCase();
+  if(!ambalaj.includes('L')) ambalaj+='L';
+  maliyet = maliyet.replace(',','.').replace(/[^0-9\.]/g,'');
+  
+  return {ral_no:ralNo, ral_isim:ralIsim, urun:urun, base_no:base, formul:formul, can_size:ambalaj, colorant_cost:maliyet, raw:v};
+}
+
+function onJcmInput(){
+  let v = document.getElementById('jcmInput').value.trim();
+  if(!v) return;
+  let parsed = parseJcmFormat(v);
+  if(!parsed){
+    // Eski format WB019 | 41.86 gibi ise
+    let parca = v.split('|');
+    if(parca.length>=2){
+      document.getElementById('formulInput').value = parca[0].trim();
+      document.getElementById('maliyetInput').value = parca[1].trim();
+      document.getElementById('otoInfo').style.display='block';
+      document.getElementById('otoInfo').innerText = 'Eski format algılandı - RAL ve BASE yaz, 5sn içinde kaydedeceğim';
+      startOtoKayit(5);
+    }
+    return;
+  }
+  // Otomatik doldur
+  document.getElementById('ralInput').value = parsed.ral_no;
+  document.getElementById('urunInput').value = parsed.urun;
+  document.getElementById('baseInput').value = parsed.base_no;
+  document.getElementById('formulInput').value = parsed.formul;
+  document.getElementById('ambalajInput').value = parsed.can_size;
+  document.getElementById('maliyetInput').value = parsed.colorant_cost;
+  
+  document.getElementById('otoInfo').style.display='block';
+  let info = `✅ ÇÖZÜLDÜ: RAL ${parsed.ral_no} | ${parsed.urun} | BASE ${parsed.base_no} | ${parsed.formul} | ${parsed.can_size} | $${parsed.colorant_cost}`;
+  document.getElementById('otoInfo').innerText = info + '\n⏳ 5 saniye içinde otomatik kaydedilecek...';
+  
+  startOtoKayit(5);
+}
+
+function startOtoKayit(saniye){
+  if(otoTimer) clearInterval(otoTimer);
+  let kalan = saniye;
+  let btn = document.getElementById('kaydetBtn');
+  otoTimer = setInterval(()=>{
+    kalan--;
+    if(kalan>0){
+      document.getElementById('otoInfo').innerText += `\n⏳ ${kalan}...`;
+      btn.innerText = `⏳ ${kalan} SN SONRA KAYIT...`;
+      btn.style.background='#ff9900';
+    } else {
+      clearInterval(otoTimer);
+      btn.innerText='✅ KAYDEDİLİYOR...';
+      kaydet();
+      btn.innerText='✅ KAYDET SİSTEME';
+      btn.style.background='#0a7a2f';
+    }
+  },1000);
+}
 
 function kaydet(){
-  let v = document.getElementById('jcmInput').value.trim();
-  let ral = document.getElementById('ralInput').value.trim().toUpperCase() || 'BILINMEYEN';
-  let base = document.getElementById('baseInput').value || '3';
-  if(!v) return alert('JCM kodunu yapıştır - örn: WB019 BL070.3... | 41.86');
-  if(!ral || ral=='BILINMEYEN') { ral = prompt('RAL No yaz (7016 gibi):',''); if(!ral) return; }
-  
-  // JCM parse: FORMUL | MALIYET veya FORMUL | MALIYET | BASE
-  let parca = v.split('|');
-  let formul = parca[0].trim();
-  let maliyet = parca[1] ? parca[1].trim().replace(',','.') : '0';
-  // Eğer 3 parça varsa 3. parça base olabilir
-  if(parca[2] && !isNaN(parca[2].trim())) base = parca[2].trim();
-  
-  // BASE'i formülden de dene: BASE 1/2/3 geçiyorsa
-  let baseMatch = formul.match(/BASE\s*([1-3])/i);
-  if(baseMatch) base = baseMatch[1];
-
-  let obj = {
-    ral_no: ral.replace('RAL','').trim(),
-    base_no: base,
-    formul: formul,
-    colorant_cost: maliyet,
-    tarih: new Date().toLocaleString('tr-TR'),
-    raw_jcm: v
-  };
-  // Aynı RAL+BASE varsa güncelle
+  if(otoTimer){clearInterval(otoTimer); otoTimer=null;}
+  let jcmRaw = document.getElementById('jcmInput').value.trim();
+  let parsed = parseJcmFormat(jcmRaw);
+  let obj;
+  if(parsed){
+    obj = {ral_no:parsed.ral_no, ral_isim:parsed.ral_isim, product:parsed.urun, base_no:parsed.base_no, formul:parsed.formul, can_size:parsed.can_size, colorant_cost:parsed.colorant_cost, tarih:new Date().toLocaleString('tr-TR'), raw_jcm:jcmRaw};
+  } else {
+    // Manuel
+    let ral = document.getElementById('ralInput').value.trim() || 'BILINMEYEN';
+    let base = document.getElementById('baseInput').value;
+    let formul = document.getElementById('formulInput').value.trim();
+    let urun = document.getElementById('urunInput').value.trim() || 'FUTURA CLASSIC';
+    let amb = document.getElementById('ambalajInput').value.trim() || '20L';
+    let mal = document.getElementById('maliyetInput').value.trim() || '0';
+    if(!formul) return alert('Formül yok');
+    let m = ral.match(/(\d{4})/); let ralNo = m?m[1]:ral;
+    obj = {ral_no:ralNo, ral_isim:ral.replace(ralNo,''), product:urun, base_no:base, formul:formul, can_size:amb, colorant_cost:mal, tarih:new Date().toLocaleString('tr-TR'), raw_jcm:jcmRaw||formul};
+  }
+  // Güncelle veya ekle
   let idx = kayitlar.findIndex(k=>k.ral_no==obj.ral_no && k.base_no==obj.base_no);
   if(idx!==-1) kayitlar[idx]=obj; else kayitlar.push(obj);
   let idx2 = kayitlarV2.findIndex(k=>k.ral_no==obj.ral_no && k.base_no==obj.base_no);
   if(idx2!==-1) kayitlarV2[idx2]=obj; else kayitlarV2.push(obj);
-
+  
   localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));
   localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2));
   
-  document.getElementById('sonuc').innerText = '✅ KAYDEDİLDİ:\n' + JSON.stringify(obj,null,2) + '\n\nTüm Liste ('+kayitlar.length+'):\n' + JSON.stringify(kayitlar,null,2);
-  console.log('JOTUN KAYIT:', obj);
-  console.log('TUM KAYITLAR:', kayitlar);
+  document.getElementById('sonuc').innerText = '✅ OTOMATİK KAYDEDİLDİ:\n'+JSON.stringify(obj,null,2)+'\n\nToplam: '+kayitlar.length;
+  document.getElementById('otoInfo').style.display='none';
   listele();
-  // Inputları temizle ama RAL dursun
   document.getElementById('jcmInput').value='';
   document.getElementById('jcmInput').focus();
 }
 
 function listele(){
-  if(kayitlar.length==0){ document.getElementById('liste').innerHTML='<div style="color:#999">Henüz kayıt yok</div>'; return; }
-  document.getElementById('liste').innerHTML = kayitlar.slice().reverse().map((k,i)=>`
-    <div style="background:white; border:2px solid #ff9900; border-radius:8px; padding:8px; display:flex; justify-content:space-between; align-items:center; margin-top:6px">
-      <div style="font-size:11px"><b>RAL ${k.ral_no}</b> BASE ${k.base_no} | $${k.colorant_cost}<br><small style="color:#666">${k.formul.substring(0,60)}...</small></div>
-      <button onclick="sil('${k.ral_no}','${k.base_no}')" style="background:#fdd; border:none; padding:6px 10px; border-radius:6px">❌</button>
+  if(kayitlar.length==0){document.getElementById('liste').innerHTML='<div style="color:#999">Henüz kayıt yok - JCM yapıştır</div>';return;}
+  document.getElementById('liste').innerHTML = kayitlar.slice().reverse().map(k=>`
+    <div style="background:white; border:2px solid #ff9900; border-radius:8px; padding:8px; display:flex; justify-content:space-between; margin-top:6px; font-size:11px">
+      <div><b>RAL ${k.ral_no}</b> ${k.ral_isim||''} | <b>${k.product||'FUTURA'}</b> BASE ${k.base_no} | ${k.can_size||''} | $${k.colorant_cost}<br><small>${k.formul?.substring(0,70)}</small></div>
+      <button onclick="sil('${k.ral_no}','${k.base_no}')" style="background:#fdd;border:none;padding:6px 10px;border-radius:6px">❌</button>
     </div>
   `).join('');
 }
+function sil(ral,base){kayitlar=kayitlar.filter(k=>!(k.ral_no==ral&&k.base_no==base));kayitlarV2=kayitlarV2.filter(k=>!(k.ral_no==ral&&k.base_no==base));localStorage.setItem('jotun_kayitlar',JSON.stringify(kayitlar));localStorage.setItem('jotun_kayitlar_v2',JSON.stringify(kayitlarV2));listele();}
+function temizle(){if(confirm(kayitlar.length+' kayıt silinsin mi?')){kayitlar=[];kayitlarV2=[];localStorage.setItem('jotun_kayitlar','[]');localStorage.setItem('jotun_kayitlar_v2','[]');listele();document.getElementById('sonuc').innerText='Temizlendi';}}
 
-function sil(ral,base){
-  kayitlar = kayitlar.filter(k=>!(k.ral_no==ral && k.base_no==base));
-  kayitlarV2 = kayitlarV2.filter(k=>!(k.ral_no==ral && k.base_no==base));
-  localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));
-  localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2));
-  listele();
-  document.getElementById('sonuc').innerText = `Silindi RAL ${ral} BASE ${base} - Kalan ${kayitlar.length}`;
-}
-
-function exportJSON(){
-  let txt = JSON.stringify(kayitlar,null,2);
-  navigator.clipboard.writeText(txt).then(()=>alert('✅ '+kayitlar.length+' kayıt kopyalandı - GitHub products.json veya jotun_kayitlar.json olarak yapıştır'));
-  document.getElementById('sonuc').innerText = txt;
-}
-
-function indir(){
-  let blob = new Blob([JSON.stringify(kayitlar,null,2)], {type:'application/json'});
-  let a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='jotun_kayitlar.json'; a.click();
-}
-
-function temizle(){
-  if(confirm(kayitlar.length+' kayıt var - Hepsi silinsin mi?')){
-    kayitlar=[]; kayitlarV2=[];
-    localStorage.setItem('jotun_kayitlar','[]');
-    localStorage.setItem('jotun_kayitlar_v2','[]');
-    listele(); document.getElementById('sonuc').innerText='Temizlendi';
-  }
-}
-
-// Sayfa açılınca listele
+document.getElementById('jcmInput').addEventListener('input', onJcmInput);
+document.getElementById('jcmInput').addEventListener('paste', ()=>setTimeout(onJcmInput,100));
 listele();
-document.getElementById('sonuc').innerText = kayitlar.length+' kayıt var - Hazır. JCM yapıştır, RAL yaz, BASE seç, KAYDET bas.';
+document.getElementById('sonuc').innerText = kayitlar.length+' kayıt var - Hazır. Format: RAL | ÜRÜN | BASE | FORMÜL | AMBALAJ | MALİYET yapıştır.';
 </script>
