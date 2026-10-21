@@ -1,26 +1,118 @@
-<!-- RAL KAYIT PANELİ -->
-<div style="border:2px dashed orange; padding:15px; margin:20px; background:#fffbe6">
-  <h3>📥 JCM'den Gelen Formül</h3>
-  <input id="jcmInput" placeholder="JCM'den kopyala: WB019 BL070.3... | 41.86" style="width:70%; padding:8px">
-  <input id="ralInput" placeholder="RAL No: 7016" style="width:20%; padding:8px">
-  <button onclick="kaydet()" style="padding:8px 15px; background:green; color:white">KAYDET SİSTEME</button>
-  <pre id="sonuc"></pre>
+<!-- RAL KAYIT PANELİ - V2 - JCM + RAL + BASE TAM -->
+<div style="border:2px dashed orange; padding:15px; margin:20px; background:#fffbe6; border-radius:12px; font-family:Arial">
+  <h3 style="color:#012060">🎨 JCM'den Gelen Formül - TAM KAYIT</h3>
+  <div style="display:grid; grid-template-columns:1fr 120px 100px; gap:8px; margin-top:10px">
+    <input id="jcmInput" placeholder="JCM'den kopyala: WB019 BL070.3... | 41.86" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:700">
+    <input id="ralInput" placeholder="RAL No: 7016" style="padding:10px; border:2px solid #ff9900; border-radius:8px; font-weight:900">
+    <select id="baseInput" style="padding:10px; border:2px solid #012060; border-radius:8px; font-weight:900">
+      <option value="1">BASE 1</option>
+      <option value="2">BASE 2</option>
+      <option value="3" selected>BASE 3</option>
+    </select>
+  </div>
+  <div style="display:flex; gap:8px; margin-top:10px">
+    <button onclick="kaydet()" style="flex:1; padding:12px; background:#0a7a2f; color:white; border:none; border-radius:10px; font-weight:900; cursor:pointer">✅ KAYDET SİSTEME - 2 SİTEDE ÇALIŞIR</button>
+    <button onclick="temizle()" style="padding:12px; background:#ff4444; color:white; border:none; border-radius:10px; font-weight:900">🗑️ TEMİZLE</button>
+  </div>
+  <div style="display:flex; gap:8px; margin-top:8px">
+    <button onclick="exportJSON()" style="flex:1; padding:8px; background:#012060; color:white; border:none; border-radius:8px; font-size:11px">📋 GitHub için JSON KOPYALA</button>
+    <button onclick="indir()" style="flex:1; padding:8px; background:#ffcc00; color:#012060; border:2px solid #012060; border-radius:8px; font-size:11px; font-weight:900">⬇️ JSON İNDİR</button>
+  </div>
+  <pre id="sonuc" style="background:white; padding:10px; border-radius:8px; margin-top:10px; max-height:200px; overflow:auto; font-size:11px"></pre>
+  <div id="liste" style="margin-top:12px"></div>
 </div>
 
 <script>
 let kayitlar = JSON.parse(localStorage.getItem('jotun_kayitlar')||'[]');
+let kayitlarV2 = JSON.parse(localStorage.getItem('jotun_kayitlar_v2')||'[]');
+// İkisini senkron tut
+if(kayitlar.length>0 && kayitlarV2.length==0) { kayitlarV2=kayitlar; localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2)); }
+if(kayitlarV2.length>0 && kayitlar.length==0) { kayitlar=kayitlarV2; localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar)); }
+
 function kaydet(){
-  let v = document.getElementById('jcmInput').value;
-  let ral = document.getElementById('ralInput').value || 'BILINMEYEN';
-  if(!v) return alert('JCM kodunu yapıştır');
+  let v = document.getElementById('jcmInput').value.trim();
+  let ral = document.getElementById('ralInput').value.trim().toUpperCase() || 'BILINMEYEN';
+  let base = document.getElementById('baseInput').value || '3';
+  if(!v) return alert('JCM kodunu yapıştır - örn: WB019 BL070.3... | 41.86');
+  if(!ral || ral=='BILINMEYEN') { ral = prompt('RAL No yaz (7016 gibi):',''); if(!ral) return; }
+  
+  // JCM parse: FORMUL | MALIYET veya FORMUL | MALIYET | BASE
   let parca = v.split('|');
   let formul = parca[0].trim();
-  let maliyet = parca[1] ? parca[1].trim() : '0';
-  let obj = {ral:ral, formul:formul, colorant_cost:maliyet, tarih:new Date().toLocaleString()};
-  kayitlar.push(obj);
+  let maliyet = parca[1] ? parca[1].trim().replace(',','.') : '0';
+  // Eğer 3 parça varsa 3. parça base olabilir
+  if(parca[2] && !isNaN(parca[2].trim())) base = parca[2].trim();
+  
+  // BASE'i formülden de dene: BASE 1/2/3 geçiyorsa
+  let baseMatch = formul.match(/BASE\s*([1-3])/i);
+  if(baseMatch) base = baseMatch[1];
+
+  let obj = {
+    ral_no: ral.replace('RAL','').trim(),
+    base_no: base,
+    formul: formul,
+    colorant_cost: maliyet,
+    tarih: new Date().toLocaleString('tr-TR'),
+    raw_jcm: v
+  };
+  // Aynı RAL+BASE varsa güncelle
+  let idx = kayitlar.findIndex(k=>k.ral_no==obj.ral_no && k.base_no==obj.base_no);
+  if(idx!==-1) kayitlar[idx]=obj; else kayitlar.push(obj);
+  let idx2 = kayitlarV2.findIndex(k=>k.ral_no==obj.ral_no && k.base_no==obj.base_no);
+  if(idx2!==-1) kayitlarV2[idx2]=obj; else kayitlarV2.push(obj);
+
   localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));
-  document.getElementById('sonuc').innerText = '✅ KAYDEDİLDİ:\n' + JSON.stringify(obj,null,2) + '\n\nTüm Liste:\n' + JSON.stringify(kayitlar,null,2);
-  // products.json için export
-  console.log('products.json için:', JSON.stringify(kayitlar));
+  localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2));
+  
+  document.getElementById('sonuc').innerText = '✅ KAYDEDİLDİ:\n' + JSON.stringify(obj,null,2) + '\n\nTüm Liste ('+kayitlar.length+'):\n' + JSON.stringify(kayitlar,null,2);
+  console.log('JOTUN KAYIT:', obj);
+  console.log('TUM KAYITLAR:', kayitlar);
+  listele();
+  // Inputları temizle ama RAL dursun
+  document.getElementById('jcmInput').value='';
+  document.getElementById('jcmInput').focus();
 }
+
+function listele(){
+  if(kayitlar.length==0){ document.getElementById('liste').innerHTML='<div style="color:#999">Henüz kayıt yok</div>'; return; }
+  document.getElementById('liste').innerHTML = kayitlar.slice().reverse().map((k,i)=>`
+    <div style="background:white; border:2px solid #ff9900; border-radius:8px; padding:8px; display:flex; justify-content:space-between; align-items:center; margin-top:6px">
+      <div style="font-size:11px"><b>RAL ${k.ral_no}</b> BASE ${k.base_no} | $${k.colorant_cost}<br><small style="color:#666">${k.formul.substring(0,60)}...</small></div>
+      <button onclick="sil('${k.ral_no}','${k.base_no}')" style="background:#fdd; border:none; padding:6px 10px; border-radius:6px">❌</button>
+    </div>
+  `).join('');
+}
+
+function sil(ral,base){
+  kayitlar = kayitlar.filter(k=>!(k.ral_no==ral && k.base_no==base));
+  kayitlarV2 = kayitlarV2.filter(k=>!(k.ral_no==ral && k.base_no==base));
+  localStorage.setItem('jotun_kayitlar', JSON.stringify(kayitlar));
+  localStorage.setItem('jotun_kayitlar_v2', JSON.stringify(kayitlarV2));
+  listele();
+  document.getElementById('sonuc').innerText = `Silindi RAL ${ral} BASE ${base} - Kalan ${kayitlar.length}`;
+}
+
+function exportJSON(){
+  let txt = JSON.stringify(kayitlar,null,2);
+  navigator.clipboard.writeText(txt).then(()=>alert('✅ '+kayitlar.length+' kayıt kopyalandı - GitHub products.json veya jotun_kayitlar.json olarak yapıştır'));
+  document.getElementById('sonuc').innerText = txt;
+}
+
+function indir(){
+  let blob = new Blob([JSON.stringify(kayitlar,null,2)], {type:'application/json'});
+  let a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='jotun_kayitlar.json'; a.click();
+}
+
+function temizle(){
+  if(confirm(kayitlar.length+' kayıt var - Hepsi silinsin mi?')){
+    kayitlar=[]; kayitlarV2=[];
+    localStorage.setItem('jotun_kayitlar','[]');
+    localStorage.setItem('jotun_kayitlar_v2','[]');
+    listele(); document.getElementById('sonuc').innerText='Temizlendi';
+  }
+}
+
+// Sayfa açılınca listele
+listele();
+document.getElementById('sonuc').innerText = kayitlar.length+' kayıt var - Hazır. JCM yapıştır, RAL yaz, BASE seç, KAYDET bas.';
 </script>
